@@ -1,0 +1,263 @@
+[gd_scene load_steps=8 format=3 uid="uid://dhyct6epq4upy"]
+
+[sub_resource type="GDScript" id="GDScript_1477i"]
+script/source = "extends CharacterBody2D
+## This is a class that controls the internal workings of the simulated rover
+# Note: Items that are suffixed with _ are intended to be Godot abstractions
+# 	for some function that is not possible to simulate at this moment.
+#	i.e., there are no physical motors so move_forward_ is treated as a placeholder
+#	Additionally, it is GDScript convention to prefix internal functions with an underscore
+
+
+# Note: @export is a Godot keyword that lets you change a variable easily.
+#		Thus, the values below can be treated as defaults, instead of the actual value
+@export var MAX_FORWARD_SPEED = 420
+@export var MAX_BACKWARD_SPEED = 420
+@export var MAX_ROTATIONAL_SPEED = 3
+
+# Note: A Vector2 in Godot is a pair of numeric values, not a mathematical vector
+var internal_position: Vector2
+var internal_rotation: float
+
+# These simulate the data the LIDAR sensors on the sides of the robot will provide
+var left_distance_LIDAR: float
+var right_distance_LIDAR: float
+var back_distance_LIDAR: float
+
+var ncsc_attached:bool = false:
+	set(attached):
+		$\"Nebulite CSC\".visible = attached
+		$NCSCCollider.set_deferred(\"disabled\", not attached)
+		ncsc_attached = attached
+		
+var gcsc_attached:bool = false:
+	set(attached):
+		$\"Geodinium CSC\".visible = attached
+		$GCSCCollider.set_deferred(\"disabled\", not attached)
+		gcsc_attached = attached
+
+var nebulite_count:int = 0:
+	set(new_count):
+		_update_count_label_($\"Nebulite CSC/Material Count\", new_count)
+		nebulite_count = new_count
+		
+var geodinium_count:int = 0:
+	set(new_count):
+		_update_count_label_($\"Geodinium CSC/Material Count\", new_count)
+		geodinium_count = new_count
+
+func _ready() -> void:
+	$roller.area_entered.connect(pick_up_material_)
+	$\"Geodinium CSC/Collision\".area_entered.connect(pick_up_CSC)
+	$\"Nebulite CSC/Collision\".area_entered.connect(pick_up_CSC)
+
+	
+
+func _physics_process(delta_: float) -> void :
+	# For debugging purposes:
+	if Input.is_action_pressed(\"move_forward\"):
+		move_forward_(delta_, MAX_FORWARD_SPEED)
+	
+	# For debugging purposes:
+	if Input.is_action_pressed(\"move_back\"):
+		move_backward_(delta_,500)
+
+	# For debugging purposes:
+	# Note: Input.get_axis returns a normalized Vector2 in the x or -x direction
+	var direction = Input.get_axis(\"rotate_left\", \"rotate_right\")
+	if direction:
+		rotate_(delta_, MAX_ROTATIONAL_SPEED, direction)
+	
+	
+## Handle forward movement, given speed.
+func move_forward_(delta_: float, speed:int) -> void:
+	# Note: We multiply by delta because 1 second = 1 physics tick * delta, and 
+	# 		_physics_process happens once each physics tick.
+	# Note: move_and_collide is a self-descriptive internal function
+	if speed > MAX_FORWARD_SPEED: # Checking we're not going over the max speed
+		var max_speed = delta_*MAX_FORWARD_SPEED*Vector2(0,-1).rotated(rotation)
+		move_and_collide(max_speed)
+	else:
+		var desired_speed = delta_*speed*Vector2(0,-1).rotated(rotation)
+		move_and_collide(desired_speed)
+
+
+## Handle backwards movement, given speed.
+func move_backward_(delta_: float, speed:float) -> void:
+	# Note: See move_forward_
+	if speed > MAX_BACKWARD_SPEED:
+		var max_speed = delta_*MAX_BACKWARD_SPEED*Vector2(0,1).rotated(rotation)
+		move_and_collide(max_speed)
+	else:
+		var desired_speed = delta_*speed*Vector2(0,1).rotated(rotation)
+		move_and_collide(desired_speed)
+
+
+## Handle rotation, given the desired speed and direction
+func rotate_(delta_: float, speed:float, direction: float) -> void:
+	var clamped_speed = clampf(speed, 0, MAX_ROTATIONAL_SPEED)
+	rotation += (delta_ * clamped_speed * direction)
+
+
+## This is called when the roller Area2D interacts with another Area2D on the same
+## collision layer (this should just be astral material)
+# Note: This is a slight abstraction of what's likely to be the real function,
+# 		so I decided to give it an _ suffix.
+func pick_up_material_(astral_material: Area2D) -> void:
+	if astral_material.is_nebulite() and ncsc_attached:
+		nebulite_count += 1
+		print(\"nebulite\")
+	elif (not astral_material.is_nebulite() and gcsc_attached):
+		geodinium_count += 1
+		print(\"geodinium\")
+	else:
+		return
+	astral_material.queue_free()
+
+
+## See pick_up_material_
+func pick_up_CSC(csc: Area2D) -> void:
+	assert(csc.has_method(\"is_nebulite\")) # Note: This is a debugging tool
+	if csc.is_nebulite():
+		ncsc_attached =  true
+		csc.queue_free()
+		print(\"nebulite csc\")
+	elif not csc.is_nebulite():
+		gcsc_attached = true
+		csc.queue_free()
+		print(\"geodinium csc\")
+		
+
+## This updates the visual material count on the CSCs. Pure abstraction
+func _update_count_label_(label: RichTextLabel, count: int) -> void:
+	var new_text = \"[center]\" + str(count) + \"[/center]\"
+	label.parse_bbcode(new_text)
+"
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_3j6x0"]
+size = Vector2(120, 120)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_n2txf"]
+size = Vector2(120, 50)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_p5ff3"]
+size = Vector2(60, 60)
+
+[sub_resource type="BoxMesh" id="BoxMesh_blgqm"]
+size = Vector3(60, 60, 60)
+
+[sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_wbtq1"]
+
+[sub_resource type="CanvasTexture" id="CanvasTexture_a7t5q"]
+diffuse_texture = SubResource("PlaceholderTexture2D_wbtq1")
+
+[node name="body" type="CharacterBody2D"]
+motion_mode = 1
+script = SubResource("GDScript_1477i")
+
+[node name="BodyCollider" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_3j6x0")
+
+[node name="RollerCollider" type="CollisionShape2D" parent="."]
+position = Vector2(0, -85)
+shape = SubResource("RectangleShape2D_n2txf")
+debug_color = Color(0.777582, 0.363277, 0.641993, 0.42)
+
+[node name="GCSCCollider" type="CollisionShape2D" parent="."]
+position = Vector2(30, 60)
+shape = SubResource("RectangleShape2D_p5ff3")
+disabled = true
+
+[node name="NCSCCollider" type="CollisionShape2D" parent="."]
+position = Vector2(-30, 60)
+shape = SubResource("RectangleShape2D_p5ff3")
+disabled = true
+
+[node name="roller" type="Area2D" parent="."]
+collision_layer = 2
+collision_mask = 2
+
+[node name="AstralMaterialCollider" type="CollisionShape2D" parent="roller"]
+position = Vector2(0, -85)
+shape = SubResource("RectangleShape2D_n2txf")
+debug_color = Color(0.777582, 0.363277, 0.641993, 0.42)
+
+[node name="Geodinium CSC" type="MeshInstance2D" parent="."]
+visible = false
+self_modulate = Color(0.290196, 0.105882, 0, 1)
+position = Vector2(30, 60)
+mesh = SubResource("BoxMesh_blgqm")
+texture = SubResource("CanvasTexture_a7t5q")
+
+[node name="Collision" type="Area2D" parent="Geodinium CSC"]
+collision_layer = 8
+collision_mask = 8
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Geodinium CSC/Collision"]
+shape = SubResource("RectangleShape2D_p5ff3")
+
+[node name="Material Count" type="RichTextLabel" parent="Geodinium CSC"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -20.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 20.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+bbcode_enabled = true
+text = "[center]0"
+fit_content = true
+
+[node name="Nebulite CSC" type="MeshInstance2D" parent="."]
+visible = false
+self_modulate = Color(0.317647, 0, 0.466667, 1)
+position = Vector2(-30, 60)
+mesh = SubResource("BoxMesh_blgqm")
+texture = SubResource("CanvasTexture_a7t5q")
+
+[node name="Collision" type="Area2D" parent="Nebulite CSC"]
+collision_layer = 4
+collision_mask = 4
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Nebulite CSC/Collision"]
+shape = SubResource("RectangleShape2D_p5ff3")
+
+[node name="Material Count" type="RichTextLabel" parent="Nebulite CSC"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -20.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 20.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+bbcode_enabled = true
+text = "[center]0"
+fit_content = true
+
+[node name="LeftLIDAR" type="RayCast2D" parent="."]
+position = Vector2(-84, 0)
+rotation = 1.5708
+scale = Vector2(5, 2330)
+
+[node name="RightLIDAR" type="RayCast2D" parent="."]
+position = Vector2(84, 0)
+rotation = -1.5708
+scale = Vector2(5, 2330)
+
+[node name="BackLIDAR" type="RayCast2D" parent="."]
+position = Vector2(0, 84)
+scale = Vector2(5, 2330)
+
+[node name="Sprite2D" type="Sprite2D" parent="."]

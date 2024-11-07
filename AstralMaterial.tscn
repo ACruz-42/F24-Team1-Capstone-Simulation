@@ -1,0 +1,19 @@
+[gd_scene load_steps=4 format=3 uid="uid://bnp4y0222nq6t"]
+
+[ext_resource type="Texture2D" uid="uid://bndtjcm5x64dm" path="res://Circle.png" id="1_pxlpj"]
+[ext_resource type="Script" path="res://astral_material.gd" id="1_smpbf"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_mskok"]
+radius = 8.0
+
+[node name="AstralMaterial" type="Area2D"]
+collision_layer = 2
+collision_mask = 2
+script = ExtResource("1_smpbf")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("1_pxlpj")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_mskok")

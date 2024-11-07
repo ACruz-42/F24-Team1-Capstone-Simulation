@@ -1,0 +1,81 @@
+[gd_scene load_steps=8 format=3 uid="uid://hocwspyoiiyc"]
+
+[ext_resource type="PackedScene" uid="uid://dhyct6epq4upy" path="res://rover.tscn" id="1_3gy7e"]
+[ext_resource type="Script" path="res://board.gd" id="1_krfcd"]
+[ext_resource type="PackedScene" uid="uid://bnp4y0222nq6t" path="res://AstralMaterial.tscn" id="2_8ya8m"]
+[ext_resource type="PackedScene" uid="uid://bj7adrm2ocavk" path="res://CSC.tscn" id="3_tse6a"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_lm2sk"]
+size = Vector2(960, 30)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_sd7uq"]
+size = Vector2(30, 450)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_hn8t4"]
+size = Vector2(35, 145)
+
+[node name="board" type="Node2D"]
+script = ExtResource("1_krfcd")
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="Button" type="Button" parent="CanvasLayer"]
+custom_minimum_size = Vector2(120, 60)
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -545.0
+offset_top = 219.0
+offset_right = -425.0
+offset_bottom = 279.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "Reset"
+
+[node name="StaticBody2D" type="StaticBody2D" parent="."]
+collision_layer = 255
+collision_mask = 255
+
+[node name="north_wall" type="CollisionShape2D" parent="StaticBody2D"]
+position = Vector2(480, 15)
+shape = SubResource("RectangleShape2D_lm2sk")
+
+[node name="south_wall" type="CollisionShape2D" parent="StaticBody2D"]
+position = Vector2(480, 495)
+shape = SubResource("RectangleShape2D_lm2sk")
+
+[node name="west_wall" type="CollisionShape2D" parent="StaticBody2D"]
+position = Vector2(15, 255)
+shape = SubResource("RectangleShape2D_sd7uq")
+
+[node name="east_wall" type="CollisionShape2D" parent="StaticBody2D"]
+position = Vector2(945, 255)
+shape = SubResource("RectangleShape2D_sd7uq")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="StaticBody2D"]
+position = Vector2(597.5, 102.5)
+shape = SubResource("RectangleShape2D_hn8t4")
+
+[node name="CollisionShape2D3" type="CollisionShape2D" parent="StaticBody2D"]
+position = Vector2(597.5, 407.5)
+shape = SubResource("RectangleShape2D_hn8t4")
+
+[node name="Rover" parent="." instance=ExtResource("1_3gy7e")]
+position = Vector2(314, 363)
+wall_min_slide_angle = 1.5708
+
+[node name="AstralMaterial" parent="." instance=ExtResource("2_8ya8m")]
+position = Vector2(302, 216)
+
+[node name="AstralMaterial2" parent="." instance=ExtResource("2_8ya8m")]
+position = Vector2(333, 219)
+type = 1
+
+[node name="CSC" parent="." instance=ExtResource("3_tse6a")]
+position = Vector2(248, 41)
+
+[node name="CSC2" parent="." instance=ExtResource("3_tse6a")]
+position = Vector2(448, 400)
+type = 0
