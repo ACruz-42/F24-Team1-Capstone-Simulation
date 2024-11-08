@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3 uid="uid://dhyct6epq4upy"]
+[gd_scene load_steps=13 format=3 uid="uid://dhyct6epq4upy"]
 
 [sub_resource type="GDScript" id="GDScript_1477i"]
 script/source = "extends CharacterBody2D
@@ -11,9 +11,9 @@ script/source = "extends CharacterBody2D
 
 # Note: @export is a Godot keyword that lets you change a variable easily.
 #		Thus, the values below can be treated as defaults, instead of the actual value
-@export var MAX_FORWARD_SPEED = 420
-@export var MAX_BACKWARD_SPEED = 420
-@export var MAX_ROTATIONAL_SPEED = 3
+@export var MAX_FORWARD_SPEED = 42*30
+@export var MAX_BACKWARD_SPEED = 42*30
+@export var MAX_ROTATIONAL_SPEED = 0.1*30
 
 # Note: A Vector2 in Godot is a pair of numeric values, not a mathematical vector
 var internal_position: Vector2
@@ -50,8 +50,32 @@ func _ready() -> void:
 	$roller.area_entered.connect(pick_up_material_)
 	$\"Geodinium CSC/Collision\".area_entered.connect(pick_up_CSC)
 	$\"Nebulite CSC/Collision\".area_entered.connect(pick_up_CSC)
+	var outer_array: Array
+	for i:int in range(16):
+		var inner_array: Array
+		if i == 0 or i == 15:
+			inner_array.resize(32)
+			inner_array.fill(0)
+		else:
+			inner_array.resize(32)
+			inner_array.fill(2)
+			inner_array[0] = 0
+			inner_array[31] = 0
+		outer_array.append(inner_array)
+	var starting_position = Godot_to_AStar_Position(Vector2(960,1242))
+	var ending_position =  Godot_to_AStar_Position(Vector2(2379,1085))
 
-	
+	var time_start = Time.get_unix_time_from_system()
+	var path = a_star(starting_position, ending_position, outer_array)
+	var time_end = Time.get_unix_time_from_system()
+	print(\"Time Elapsed: \", str(time_end-time_start))
+	print(path)
+	for i in path:
+		outer_array[i.y][i.x] = 9
+		for j in outer_array:
+			print(j)
+		print()
+
 
 func _physics_process(delta_: float) -> void :
 	# For debugging purposes:
@@ -132,19 +156,167 @@ func pick_up_CSC(csc: Area2D) -> void:
 func _update_count_label_(label: RichTextLabel, count: int) -> void:
 	var new_text = \"[center]\" + str(count) + \"[/center]\"
 	label.parse_bbcode(new_text)
+
+
+	#### ASTAR STARTS HERE #####
+var test_grid : Array[Array]= [
+	[1, 0, 1, 1, 1, 1, 0, 1, 1, 1],
+	[1, 1, 1, 0, 1, 1, 1, 0, 1, 1],
+	[1, 1, 1, 0, 1, 1, 0, 1, 0, 1],
+	[0, 0, 1, 0, 1, 0, 0, 0, 0, 1],
+	[1, 1, 1, 0, 1, 1, 1, 0, 1, 0],
+	[1, 0, 1, 1, 1, 1, 0, 1, 0, 0],
+	[1, 0, 0, 0, 0, 1, 0, 0, 0, 1],
+	[1, 0, 1, 1, 1, 1, 0, 1, 1, 1],
+	[1, 1, 1, 0, 0, 0, 1, 0, 0, 1]
+	]
+
+# A structure to represent nodes in the pathfinding grid
+class AStar_Node:
+	var node_position: Vector2
+	var g_cost: float = 0  # Cost from the start node
+	var h_cost: float = 0  # Heuristic cost to the goal
+	var parent: AStar_Node = null
+
+	func _init(starting_position: Vector2):
+		node_position = starting_position
+
+	func f_cost() -> float:
+		return g_cost + h_cost
+
+
+func a_star(start: Vector2, goal: Vector2, grid: Array) -> Array:
+	var open_list = []
+	var closed_list = []
+
+	var start_node = AStar_Node.new(start)
+	var goal_node = AStar_Node.new(goal)
+
+	open_list.append(start_node)
+
+	# Movement offsets for 8 directions (up, down, left, right, and diagonals)
+	var offsets = [
+		Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1),  # Cardinal directions
+		Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)  # Diagonal directions
+	]
+
+	while open_list.size() > 0:
+		# Sort the open list by F cost and pick the node with the lowest F cost
+		open_list.sort_custom(_compare_nodes)
+		var current_node = open_list[0]
+
+		if current_node.node_position == goal_node.node_position:
+			return construct_path(current_node)
+
+		open_list.erase(current_node)
+		closed_list.append(current_node)
+
+		# Get neighbors
+		for offset in offsets:
+			var neighbor_pos = current_node.node_position + offset
+
+			if !is_valid_position(neighbor_pos, grid) or node_in_list(neighbor_pos, closed_list):
+				continue
+
+			var movement_cost = grid[int(neighbor_pos.y)][int(neighbor_pos.x)]
+			if movement_cost <= 0:
+				continue
+
+			var neighbor_node = AStar_Node.new(neighbor_pos)
+			var additional_cost = 10 if (offset.x == 0 or offset.y == 0) else 14  
+			neighbor_node.g_cost = current_node.g_cost + movement_cost * additional_cost
+			neighbor_node.h_cost = heuristic(neighbor_node.node_position, goal_node.node_position)
+			neighbor_node.parent = current_node
+
+			if !node_in_list(neighbor_pos, open_list):
+				open_list.append(neighbor_node)
+			else:
+				var existing_node = get_node_from_list(neighbor_pos, open_list)
+				if neighbor_node.g_cost < existing_node.g_cost:
+					existing_node.g_cost = neighbor_node.g_cost
+					existing_node.parent = current_node
+
+	# No path found
+	return []
+
+
+
+# Heuristic function (using Euclidean distance)
+func heuristic(pos_a: Vector2, pos_b: Vector2) -> float:
+	return pos_a.distance_to(pos_b)
+
+# Helper function to check if a position is valid
+func is_valid_position(pos: Vector2, grid: Array) -> bool:
+	if pos.x < 0 or pos.x >= grid[0].size() or pos.y < 0 or pos.y >= grid.size():
+		return false
+	return grid[int(pos.y)][int(pos.x)] > 0  # Ensure position is walkable
+
+# Helper function to check if a node with a specific position is in a list
+func node_in_list(new_position: Vector2, node_list: Array) -> bool:
+	for node in node_list:
+		if node.node_position == new_position:
+			return true
+	return false
+
+# Helper function to get a node from a list based on its position
+func get_node_from_list(new_position: Vector2, node_list: Array) -> AStar_Node:
+	for node in node_list:
+		if node.node_position == new_position:
+			return node
+	return null
+
+# Construct the path by backtracking from the goal node to the start node
+func construct_path(node: AStar_Node) -> Array:
+	var path = []
+	while node != null:
+		path.insert(0, node.node_position)
+		node = node.parent
+	return path
+	
+# Custom compare function for sorting nodes by F cost
+func _compare_nodes(node_a: AStar_Node, node_b: AStar_Node) -> int:
+	if node_a.f_cost() <= node_b.f_cost():
+		return true
+	else:
+		return false
+	
+## AStar <-> Godot Position helper functions ##
+
+# I don't know if these two functions will remain in the code, but as one might
+# imagine, having one coordinate position be 3.333333 times the other is a bit
+# of a tough decision. That said, the board size is 93x45
+func AStar_to_Godot_Position(AStar_Position: Vector2) -> Vector2:
+	return ceil(AStar_Position * (90))
+
+func Godot_to_AStar_Position(Godot_Position: Vector2) -> Vector2:
+	return ceil(Godot_Position / (90))
 "
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_3j6x0"]
-size = Vector2(120, 120)
+size = Vector2(360, 360)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_n2txf"]
-size = Vector2(120, 50)
+size = Vector2(360, 150)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_p5ff3"]
-size = Vector2(60, 60)
+size = Vector2(180, 180)
+
+[sub_resource type="BoxMesh" id="BoxMesh_1h1q6"]
+size = Vector3(180, 180, 180)
+
+[sub_resource type="ViewportTexture" id="ViewportTexture_y03x6"]
+
+[sub_resource type="CanvasTexture" id="CanvasTexture_6sit7"]
+
+[sub_resource type="PlaceholderMesh" id="PlaceholderMesh_mryqs"]
+
+[sub_resource type="MeshTexture" id="MeshTexture_gh4lw"]
+mesh = SubResource("PlaceholderMesh_mryqs")
+base_texture = SubResource("CanvasTexture_6sit7")
+image_size = Vector2(360, 360)
 
 [sub_resource type="BoxMesh" id="BoxMesh_blgqm"]
-size = Vector3(60, 60, 60)
+size = Vector3(180, 180, 180)
 
 [sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_wbtq1"]
 
@@ -159,17 +331,17 @@ script = SubResource("GDScript_1477i")
 shape = SubResource("RectangleShape2D_3j6x0")
 
 [node name="RollerCollider" type="CollisionShape2D" parent="."]
-position = Vector2(0, -85)
+position = Vector2(0, -255)
 shape = SubResource("RectangleShape2D_n2txf")
 debug_color = Color(0.777582, 0.363277, 0.641993, 0.42)
 
 [node name="GCSCCollider" type="CollisionShape2D" parent="."]
-position = Vector2(30, 60)
+position = Vector2(90, 180)
 shape = SubResource("RectangleShape2D_p5ff3")
 disabled = true
 
 [node name="NCSCCollider" type="CollisionShape2D" parent="."]
-position = Vector2(-30, 60)
+position = Vector2(-90, 180)
 shape = SubResource("RectangleShape2D_p5ff3")
 disabled = true
 
@@ -178,46 +350,44 @@ collision_layer = 2
 collision_mask = 2
 
 [node name="AstralMaterialCollider" type="CollisionShape2D" parent="roller"]
-position = Vector2(0, -85)
+position = Vector2(0, -255)
 shape = SubResource("RectangleShape2D_n2txf")
 debug_color = Color(0.777582, 0.363277, 0.641993, 0.42)
 
-[node name="Geodinium CSC" type="MeshInstance2D" parent="."]
-visible = false
-self_modulate = Color(0.290196, 0.105882, 0, 1)
-position = Vector2(30, 60)
-mesh = SubResource("BoxMesh_blgqm")
-texture = SubResource("CanvasTexture_a7t5q")
+[node name="Mesh2" type="MeshInstance2D" parent="roller"]
+self_modulate = Color(0, 0, 1, 1)
+position = Vector2(0, -240)
+scale = Vector2(2, 1)
+mesh = SubResource("BoxMesh_1h1q6")
+texture = SubResource("ViewportTexture_y03x6")
 
-[node name="Collision" type="Area2D" parent="Geodinium CSC"]
-collision_layer = 8
-collision_mask = 8
+[node name="LeftLIDAR" type="RayCast2D" parent="."]
+position = Vector2(-252, 0)
+rotation = 1.5708
+scale = Vector2(5, 2330)
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Geodinium CSC/Collision"]
-shape = SubResource("RectangleShape2D_p5ff3")
+[node name="RightLIDAR" type="RayCast2D" parent="."]
+position = Vector2(252, 0)
+rotation = -1.5708
+scale = Vector2(5, 2330)
 
-[node name="Material Count" type="RichTextLabel" parent="Geodinium CSC"]
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -20.0
-offset_top = -20.0
-offset_right = 20.0
-offset_bottom = 20.0
-grow_horizontal = 2
-grow_vertical = 2
-size_flags_horizontal = 4
-size_flags_vertical = 4
-bbcode_enabled = true
-text = "[center]0"
-fit_content = true
+[node name="BackLIDAR" type="RayCast2D" parent="."]
+position = Vector2(0, 252)
+scale = Vector2(5, 2330)
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = SubResource("MeshTexture_gh4lw")
+
+[node name="Mesh" type="MeshInstance2D" parent="."]
+position = Vector2(-1.90735e-06, 1.66893e-06)
+scale = Vector2(2, 2)
+mesh = SubResource("BoxMesh_1h1q6")
+texture = SubResource("ViewportTexture_y03x6")
 
 [node name="Nebulite CSC" type="MeshInstance2D" parent="."]
 visible = false
 self_modulate = Color(0.317647, 0, 0.466667, 1)
-position = Vector2(-30, 60)
+position = Vector2(-90, 180)
 mesh = SubResource("BoxMesh_blgqm")
 texture = SubResource("CanvasTexture_a7t5q")
 
@@ -246,18 +416,34 @@ bbcode_enabled = true
 text = "[center]0"
 fit_content = true
 
-[node name="LeftLIDAR" type="RayCast2D" parent="."]
-position = Vector2(-84, 0)
-rotation = 1.5708
-scale = Vector2(5, 2330)
+[node name="Geodinium CSC" type="MeshInstance2D" parent="."]
+visible = false
+self_modulate = Color(0.290196, 0.105882, 0, 1)
+position = Vector2(90, 180)
+mesh = SubResource("BoxMesh_blgqm")
+texture = SubResource("CanvasTexture_a7t5q")
 
-[node name="RightLIDAR" type="RayCast2D" parent="."]
-position = Vector2(84, 0)
-rotation = -1.5708
-scale = Vector2(5, 2330)
+[node name="Collision" type="Area2D" parent="Geodinium CSC"]
+collision_layer = 8
+collision_mask = 8
 
-[node name="BackLIDAR" type="RayCast2D" parent="."]
-position = Vector2(0, 84)
-scale = Vector2(5, 2330)
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Geodinium CSC/Collision"]
+shape = SubResource("RectangleShape2D_p5ff3")
 
-[node name="Sprite2D" type="Sprite2D" parent="."]
+[node name="Material Count" type="RichTextLabel" parent="Geodinium CSC"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -20.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 20.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+bbcode_enabled = true
+text = "[center]0"
+fit_content = true
