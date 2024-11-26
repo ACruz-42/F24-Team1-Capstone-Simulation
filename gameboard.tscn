@@ -31,6 +31,7 @@ size = Vector2(105, 435)
 script = ExtResource("1_krfcd")
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
+follow_viewport_enabled = true
 
 [node name="Button" type="Button" parent="CanvasLayer"]
 custom_minimum_size = Vector2(360, 180)
@@ -46,6 +47,21 @@ offset_bottom = 90.2559
 grow_horizontal = 2
 grow_vertical = 2
 text = "Reset"
+
+[node name="Button2" type="Button" parent="CanvasLayer"]
+custom_minimum_size = Vector2(360, 180)
+anchors_preset = -1
+anchor_left = 0.267
+anchor_top = 2.603
+anchor_right = 0.267
+anchor_bottom = 2.603
+offset_left = 295.416
+offset_top = -93.7439
+offset_right = 655.416
+offset_bottom = 86.2561
+grow_horizontal = 2
+grow_vertical = 2
+text = "Start"
 
 [node name="Wall_Meshes" type="Node2D" parent="."]
 
@@ -108,7 +124,7 @@ position = Vector2(1792.5, 1222.5)
 shape = SubResource("RectangleShape2D_hn8t4")
 
 [node name="Rover" parent="." instance=ExtResource("1_3gy7e")]
-position = Vector2(2379, 1085)
+position = Vector2(940, 1155)
 wall_min_slide_angle = 1.5708
 
 [node name="AstralMaterial" parent="." instance=ExtResource("2_8ya8m")]

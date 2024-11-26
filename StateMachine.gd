@@ -1,100 +1,122 @@
-class_name StateMachine extends Node
+extends Node
 
-## A helper class to simplify desired positions
+class_name StateMachine
+
+signal send_event(event: Transform)
+signal state_changed(old_state: State, new_state: State)
+
+## Helper class
 class Transform:
-	enum position_type {
-		ABSOLUTE, RELATIVE
-	}
-	
+	enum PositionType { ABSOLUTE, RELATIVE }
+
 	signal position_reached
-	
-	var position: Vector2 = Vector2(0,0)
+
+	var position: Vector2 = Vector2.ZERO
 	var rotation: float = 0
-	var type: position_type = position_type.RELATIVE
-	
-	func _init(transform: Vector3 = Vector3.ZERO, is_absolute: bool = false) -> void:
-		position = Vector2(transform.x,transform.y)
+	var type: PositionType = PositionType.RELATIVE
+	var AStar: bool = false
+
+	func _init(transform: Vector3 = Vector3.ZERO, absolute: bool = false, is_AStar: bool = false) -> void:
+		position = Vector2(transform.x, transform.y)
 		rotation = transform.z
-		if is_absolute:
-			type = position_type.ABSOLUTE
-		else:
-			type = position_type.RELATIVE
-	
+		type = PositionType.ABSOLUTE if absolute else PositionType.RELATIVE
+		AStar = is_AStar
+
 	func is_absolute() -> bool:
-		if type == position_type.ABSOLUTE:
-			return true
-		else:
-			return false
-			
-## Internal State class
+		return type == PositionType.ABSOLUTE
+
+## Base State class
 class State:
-	signal entered_state(new_state:State)
-	signal exited_state(old_state:State)
+	signal entered_state(new_state: State)
+	signal exited_state(old_state: State)
 	signal done()
-	
-	signal transform_request(requested_transform:Transform)
-	
+
+	signal transform_request(requested_transform: Transform)
+
 	var desired_transform: Transform
-	
+
 	func enter() -> void:
 		entered_state.emit(self)
-		return
 
 	func exit() -> void:
 		exited_state.emit(self)
-		return
-	
-	## The state machine calls this every physics tick (analogous to a main loop
-	## in an embedded system)
-	func update(delta_: float) -> void:
-		return 
 
-## This state emulates waiting for the LED, however, waiting for the LED
-## is outside the purview of this simulation, but is kept as a reminder for later
-class Wait_State_ extends State: 
+	func update(_delta: float) -> void:
+		pass
+
+## Wait state
+class WaitState extends State:
 	func enter() -> void:
-		super()
+		super.enter()
 		done.emit()
-		return
 
-## During this state, the robot moves slightly forward to score points
-## as according to Specification 2 (I) and (II). 
-## Then it rotates back and forth to sense the astral material on the field
-class Sense_State extends State:
-	
+## Sense state
+class SenseState extends State:
 	func enter() -> void:
-		super()
-		var temp_timer =  Timer.new()
-		temp_timer.start(3)
-		await temp_timer.timeout
-		
-		var move_forward = Transform.new()
-		move_forward.type = Transform.position_type.RELATIVE
-		move_forward.position = Vector2(0,-30)
+		super.enter()
+
+		# Move forward
+		var move_forward = Transform.new(Vector3(0, 90, 0))
 		transform_request.emit(move_forward)
-		
-		var rotate_left = Transform.new()
-		rotate_left.type = Transform.position_type.RELATIVE
-		rotate_left.rotation = -60
+
+		# Rotate left
+		var rotate_left = Transform.new(Vector3(0, 0, 250), true)
 		transform_request.emit(rotate_left)
 		
-		var rotate_right = Transform.new()
-		rotate_left.type = Transform.position_type.RELATIVE
-		rotate_left.rotation = -60
-		transform_request.emit(rotate_left)
-		await rotate_right.position_reached
+
+		# Rotate right
+		var rotate_right = Transform.new(Vector3(0, 0, 60))
+		transform_request.emit(rotate_right)
+		
+
+		done.emit()
+
+## NCSC State (Placeholder for more logic)
+class NCSCState extends State:
+	func enter() -> void:
+		super.enter()
+		
+		var ready_position = Transform.new(Vector3(1500,850,0),true)
+		transform_request.emit(ready_position)
+		
+		var ready_rotation = Transform.new(Vector3(0,0,180), true)
+		transform_request.emit(ready_rotation)
+		
+		var pick_up_position = Transform.new(Vector3(0,-150,0))
+		transform_request.emit(pick_up_position)
 		
 		done.emit()
-		
-	func update(delta_:float) -> void:
-		
+
+
+var current_state: State
+var current_index: int = 0
+var state_list: Array = [WaitState, SenseState,NCSCState]
+
+func _ready() -> void:
+	# Initialize the state machine with a default state
+	current_state = state_list[0].new()
+	current_state.done.connect(transition_to.bind(current_index+1))
+	current_state.transform_request.connect(emit_send_event)
+
+func emit_send_event(event:Transform) -> void:
+	send_event.emit(event)
+
+func start() -> void:
+	current_state.enter()
+
+func transition_to(index: int) -> void:
+	if index >= len(state_list):
 		return
+	if current_state:
+		current_state.exit()
+		state_changed.emit(current_state, state_list[index])
+	
+	current_index = index
+	current_state = state_list[index].new()
+	current_state.done.connect(transition_to.bind(current_index+1))
+	current_state.transform_request.connect(emit_send_event)
+	current_state.enter()
 
-class NCSC_State extends State:
-	pass
-
-
-
-# pick up ncsc, pick up gcsc, go to cave,
-# pick everything up in cave, go out of cave, pick everything outside of cave
-# place beacon, wait at landing pad
+func _physics_process(delta: float) -> void:
+	if current_state:
+		current_state.update(delta)
