@@ -1,6 +1,6 @@
-[gd_scene load_steps=6 format=3 uid="uid://bj7adrm2ocavk"]
+[gd_scene load_steps=7 format=3 uid="uid://bj7adrm2ocavk"]
 
-[ext_resource type="Script" path="res://csc.gd" id="1_y1i23"]
+[ext_resource type="Script" uid="uid://dai0wya7uah7e" path="res://csc.gd" id="1_y1i23"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_7h3vo"]
 size = Vector3(180, 180, 180)
@@ -12,6 +12,8 @@ diffuse_texture = SubResource("PlaceholderTexture2D_7gikt")
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_wgsvr"]
 size = Vector2(180, 180)
+
+[sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_lcbi2"]
 
 [node name="CSC" type="Area2D"]
 collision_layer = 12
@@ -27,3 +29,8 @@ texture = SubResource("CanvasTexture_5pjhf")
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(90, 90)
 shape = SubResource("RectangleShape2D_wgsvr")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+position = Vector2(89.75, 90)
+scale = Vector2(180.5, 180)
+texture = SubResource("PlaceholderTexture2D_lcbi2")

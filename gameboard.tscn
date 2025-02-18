@@ -1,8 +1,10 @@
-[gd_scene load_steps=13 format=3 uid="uid://hocwspyoiiyc"]
+[gd_scene load_steps=21 format=3 uid="uid://hocwspyoiiyc"]
 
 [ext_resource type="PackedScene" uid="uid://dhyct6epq4upy" path="res://rover.tscn" id="1_3gy7e"]
-[ext_resource type="Script" path="res://board.gd" id="1_krfcd"]
+[ext_resource type="Script" uid="uid://df72fk5swjol4" path="res://board.gd" id="1_krfcd"]
 [ext_resource type="PackedScene" uid="uid://bnp4y0222nq6t" path="res://AstralMaterial.tscn" id="2_8ya8m"]
+[ext_resource type="PackedScene" uid="uid://vmcfbrpbfco5" path="res://Geodinium.tscn" id="2_k3t11"]
+[ext_resource type="PackedScene" uid="uid://ct3pmlpyjlpkn" path="res://Nebulite.tscn" id="3_654c7"]
 [ext_resource type="PackedScene" uid="uid://bj7adrm2ocavk" path="res://CSC.tscn" id="3_tse6a"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_sloup"]
@@ -27,38 +29,51 @@ size = Vector2(90, 1350)
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_hn8t4"]
 size = Vector2(105, 435)
 
-[node name="board" type="Node2D"]
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_io0k8"]
+size = Vector2(611, 1310)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_u8jvi"]
+size = Vector2(209.5, 546)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_k3t11"]
+size = Vector2(191, 761)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_654c7"]
+size = Vector2(391, 1295)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_4xq17"]
+size = Vector2(189, 1087.5)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_j1234"]
+size = Vector2(917, 1322)
+
+[node name="board" type="Node2D" node_paths=PackedStringArray("rover", "outside_area", "cave_area")]
 script = ExtResource("1_krfcd")
+rover = NodePath("Rover")
+outside_area = NodePath("Outside")
+cave_area = NodePath("Cave")
+geo_scene = ExtResource("2_k3t11")
+neb_scene = ExtResource("3_654c7")
+min_distance = 40.0
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 follow_viewport_enabled = true
 
 [node name="Button" type="Button" parent="CanvasLayer"]
 custom_minimum_size = Vector2(360, 180)
-anchors_preset = -1
-anchor_left = 0.267
-anchor_top = 2.603
-anchor_right = 0.267
-anchor_bottom = 2.603
-offset_left = -179.584
-offset_top = -89.7441
-offset_right = 180.416
-offset_bottom = 90.2559
-grow_horizontal = 2
-grow_vertical = 2
+offset_right = 360.0
+offset_bottom = 180.0
 text = "Reset"
 
 [node name="Button2" type="Button" parent="CanvasLayer"]
 custom_minimum_size = Vector2(360, 180)
 anchors_preset = -1
-anchor_left = 0.267
-anchor_top = 2.603
-anchor_right = 0.267
-anchor_bottom = 2.603
-offset_left = 295.416
-offset_top = -93.7439
-offset_right = 655.416
-offset_bottom = 86.2561
+anchor_left = 0.315
+anchor_right = 0.315
+offset_left = 2.11996
+offset_top = -9.0
+offset_right = 362.12
+offset_bottom = 171.0
 grow_horizontal = 2
 grow_vertical = 2
 text = "Start"
@@ -124,13 +139,15 @@ position = Vector2(1792.5, 1222.5)
 shape = SubResource("RectangleShape2D_hn8t4")
 
 [node name="Rover" parent="." instance=ExtResource("1_3gy7e")]
-position = Vector2(940, 1155)
+position = Vector2(935, 1235)
 wall_min_slide_angle = 1.5708
 
 [node name="AstralMaterial" parent="." instance=ExtResource("2_8ya8m")]
+visible = false
 position = Vector2(906, 648)
 
 [node name="AstralMaterial2" parent="." instance=ExtResource("2_8ya8m")]
+visible = false
 position = Vector2(999, 657)
 type = 1
 
@@ -144,3 +161,31 @@ type = 0
 [node name="Camera2D" type="Camera2D" parent="."]
 position = Vector2(1643, 934)
 zoom = Vector2(0.333, 0.333)
+
+[node name="Outside" type="Area2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Outside"]
+position = Vector2(418.5, 765)
+shape = SubResource("RectangleShape2D_io0k8")
+
+[node name="CollisionShape2D2" type="CollisionShape2D" parent="Outside"]
+position = Vector2(833.25, 597)
+shape = SubResource("RectangleShape2D_u8jvi")
+
+[node name="CollisionShape2D3" type="CollisionShape2D" parent="Outside"]
+position = Vector2(1036.5, 494.5)
+shape = SubResource("RectangleShape2D_k3t11")
+
+[node name="CollisionShape2D4" type="CollisionShape2D" parent="Outside"]
+position = Vector2(1335.5, 761.5)
+shape = SubResource("RectangleShape2D_654c7")
+
+[node name="CollisionShape2D5" type="CollisionShape2D" parent="Outside"]
+position = Vector2(1630.5, 659.75)
+shape = SubResource("RectangleShape2D_4xq17")
+
+[node name="Cave" type="Area2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Cave"]
+position = Vector2(2318.5, 761)
+shape = SubResource("RectangleShape2D_j1234")

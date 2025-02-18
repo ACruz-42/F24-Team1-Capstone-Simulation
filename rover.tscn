@@ -1,8 +1,8 @@
 [gd_scene load_steps=15 format=3 uid="uid://dhyct6epq4upy"]
 
-[ext_resource type="Script" path="res://rover.gd" id="1_oloi5"]
-[ext_resource type="Script" path="res://StateMachine.gd" id="2_sd76a"]
-[ext_resource type="Script" path="res://EventQueue.gd" id="3_7mt1w"]
+[ext_resource type="Script" uid="uid://byw10hrad4u3v" path="res://rover.gd" id="1_oloi5"]
+[ext_resource type="Script" uid="uid://dyle18pafd5df" path="res://StateMachine.gd" id="2_sd76a"]
+[ext_resource type="Script" uid="uid://dxn3qdxyh78p8" path="res://EventQueue.gd" id="3_7mt1w"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_3j6x0"]
 size = Vector2(360, 360)
@@ -48,12 +48,12 @@ shape = SubResource("RectangleShape2D_n2txf")
 debug_color = Color(0.777582, 0.363277, 0.641993, 0.42)
 
 [node name="GCSCCollider" type="CollisionShape2D" parent="."]
-position = Vector2(90, 180)
+position = Vector2(-90, 180)
 shape = SubResource("RectangleShape2D_p5ff3")
 disabled = true
 
 [node name="NCSCCollider" type="CollisionShape2D" parent="."]
-position = Vector2(-90, 180)
+position = Vector2(90, 180)
 shape = SubResource("RectangleShape2D_p5ff3")
 disabled = true
 
@@ -88,6 +88,8 @@ position = Vector2(0, 252)
 scale = Vector2(5, 2330)
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
+modulate = Color(0.295867, 0.295866, 0.295866, 1)
+self_modulate = Color(0.31802, 0.31802, 0.31802, 1)
 texture = SubResource("MeshTexture_gh4lw")
 
 [node name="Mesh" type="MeshInstance2D" parent="."]
@@ -96,42 +98,10 @@ scale = Vector2(2, 2)
 mesh = SubResource("BoxMesh_1h1q6")
 texture = SubResource("ViewportTexture_y03x6")
 
-[node name="Nebulite CSC" type="MeshInstance2D" parent="."]
-visible = false
-self_modulate = Color(0.317647, 0, 0.466667, 1)
-position = Vector2(-90, 180)
-mesh = SubResource("BoxMesh_blgqm")
-texture = SubResource("CanvasTexture_a7t5q")
-
-[node name="Collision" type="Area2D" parent="Nebulite CSC"]
-collision_layer = 4
-collision_mask = 4
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Nebulite CSC/Collision"]
-shape = SubResource("RectangleShape2D_p5ff3")
-
-[node name="Material Count" type="RichTextLabel" parent="Nebulite CSC"]
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -20.0
-offset_top = -20.0
-offset_right = 20.0
-offset_bottom = 20.0
-grow_horizontal = 2
-grow_vertical = 2
-size_flags_horizontal = 4
-size_flags_vertical = 4
-bbcode_enabled = true
-text = "[center]0"
-fit_content = true
-
 [node name="Geodinium CSC" type="MeshInstance2D" parent="."]
 visible = false
 self_modulate = Color(0.290196, 0.105882, 0, 1)
-position = Vector2(90, 180)
+position = Vector2(-90, 180)
 mesh = SubResource("BoxMesh_blgqm")
 texture = SubResource("CanvasTexture_a7t5q")
 
@@ -156,6 +126,40 @@ grow_horizontal = 2
 grow_vertical = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
+theme_override_font_sizes/normal_font_size = 65
+bbcode_enabled = true
+text = "[center]0"
+fit_content = true
+
+[node name="Nebulite CSC" type="MeshInstance2D" parent="."]
+visible = false
+self_modulate = Color(0.317647, 0, 0.466667, 1)
+position = Vector2(90, 180)
+mesh = SubResource("BoxMesh_blgqm")
+texture = SubResource("CanvasTexture_a7t5q")
+
+[node name="Collision" type="Area2D" parent="Nebulite CSC"]
+collision_layer = 4
+collision_mask = 4
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Nebulite CSC/Collision"]
+shape = SubResource("RectangleShape2D_p5ff3")
+
+[node name="Material Count" type="RichTextLabel" parent="Nebulite CSC"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -20.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 20.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+theme_override_font_sizes/normal_font_size = 65
 bbcode_enabled = true
 text = "[center]0"
 fit_content = true

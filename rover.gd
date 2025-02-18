@@ -13,14 +13,15 @@ extends CharacterBody2D
 
 # Note: @export is a Godot keyword that lets you change a variable easily.
 #		Thus, the values below can be treated as defaults, instead of the actual value
-@export var MAX_FORWARD_SPEED = 42*30
-@export var MAX_BACKWARD_SPEED = 42*30
-@export var MAX_ROTATIONAL_SPEED = 10*30
+@export var MAX_FORWARD_SPEED = 42*15
+@export var MAX_BACKWARD_SPEED = 42*15
+@export var MAX_ROTATIONAL_SPEED = 10*15
 
 # Note: A Vector2 in Godot is a pair of numeric values, not a mathematical vector
 var internal_position: Vector2
 var internal_rotation: float
-var grid_array: Array[Array]
+var outside_map: Array[Array]
+var cave_map: Array[Array]
 
 # These simulate the data the LIDAR sensors on the sides of the robot will provide
 var left_distance_LIDAR: float
@@ -42,6 +43,19 @@ var rotation_duration: float = 0.0
 var elapsed_rotation_time: float = 0.0
 var rotation_speed: float = 0.0
 var is_rotating: bool = false
+
+# Keep track of material on the board. This would be provided by the camera data
+# but we're assuming perfect information in this simulation, so it's exact here.
+
+var cave_nebulite: Array
+var cave_geodinium: Array
+var outside_nebulite: Array
+var outside_geodinium: Array
+
+# These are dummy variables on advisement of Dr. Rizvi. These do nothing atm.
+var correct_pad: int = 0
+const pad_locations = {0:Vector3(400,480,-180), 1:Vector3(400,600,90), 2:Vector3(400,800,90),
+					   3:Vector3(400,1000,90), 4:Vector3(400,1200,90)}
 
 # Is the Nebulite container attached?
 var ncsc_attached:bool = false:
@@ -67,6 +81,7 @@ var geodinium_count:int = 0:
 		_update_count_label_($"Geodinium CSC/Material Count", new_count)
 		geodinium_count = new_count
 
+
 func _ready() -> void:
 	# We cheat a little for debugging purposes and set our internal position
 	# to the right one. We should always start in the same position, so this is fine
@@ -75,17 +90,32 @@ func _ready() -> void:
 	$"Geodinium CSC/Collision".area_entered.connect(pick_up_CSC)
 	$"Nebulite CSC/Collision".area_entered.connect(pick_up_CSC)
 	state_machine.send_event.connect(add_event)
-	for i:int in range(16):
-		var inner_array: Array
-		if i == 0 or i == 15:
-			inner_array.resize(32)
-			inner_array.fill(0)
-		else:
-			inner_array.resize(32)
-			inner_array.fill(2)
-			inner_array[0] = 0
-			inner_array[31] = 0
-		grid_array.append(inner_array)
+	state_machine.find_path.connect(find_nearest_path)
+	
+	
+	#for i:int in range(16):
+		#var inner_array: Array
+		#if i == 0 or i == 15:
+			#inner_array.resize(18)
+			#inner_array.fill(0)
+		#else:
+			#inner_array.resize(18)
+			#inner_array.fill(3)
+			#inner_array[0] = 0
+			#inner_array[17] = 0
+		#outside_map.append(inner_array)
+		#
+	#for i:int in range(16):
+		#var inner_array: Array
+		#if i == 0 or i == 15:
+			#inner_array.resize(10)
+			#inner_array.fill(0)
+		#else:
+			#inner_array.resize(10)
+			#inner_array.fill(3)
+			#inner_array[0] = 0
+			#inner_array[9] = 0
+		#cave_map.append(inner_array)
 	#var starting_position = Godot_to_AStar_Position(Vector2(960,1242))
 	#var ending_position =  Godot_to_AStar_Position(Vector2(2379,1085))
 #
@@ -105,13 +135,15 @@ func _ready() -> void:
 	#add_event(test_event)
 	#add_event(second_event)
 	#add_event(third_event)
-	
-func start() -> void:
+
+## Starts the state machine. This is a function for clean code practice
+func start_state_machine() -> void:
 	state_machine.start()
 
 
+## This is a native godot function that runs every physics tick
 func _physics_process(delta_: float) -> void :
-	# continue processing event queue
+	# Continue processing event queue
 	if is_rotating:
 		# Run the movement function
 		rotate_(delta_, rotation_speed, 1)
@@ -119,12 +151,16 @@ func _physics_process(delta_: float) -> void :
 		# Update elapsed time
 		elapsed_rotation_time += delta_
 		internal_rotation += delta_*rotation_speed
+		while(internal_rotation < 0):
+			internal_rotation += 360
+		while(internal_rotation > 360):
+			internal_rotation -= 360
 
 		# Stop moving after the duration
-		if elapsed_rotation_time >= rotation_duration or \
+		if elapsed_rotation_time > rotation_duration or \
 		   is_equal_approx(elapsed_rotation_time, rotation_duration):
 			is_rotating = false
-	# continue processing event queue
+	# Continue processing event queue
 	elif is_moving:
 		# Run the movement function
 		if move_speed > 0:
@@ -134,10 +170,8 @@ func _physics_process(delta_: float) -> void :
 
 		# Update elapsed time
 		elapsed_move_time += delta_
-		#internal_position = position
-		internal_position.x += sin(deg_to_rad(internal_rotation)) * delta_*move_speed
-		internal_position.y -= cos(deg_to_rad(internal_rotation)) * delta_*move_speed
-
+		
+		update_position()
 	
 		# Stop moving after the duration. Accounts for floating point
 		if elapsed_move_time >= move_duration or \
@@ -147,7 +181,6 @@ func _physics_process(delta_: float) -> void :
 		# We put this here, because an event can have a rotation
 		# and distance
 		if current_event:
-			
 			current_event.position_reached.emit()
 			current_event = null
 		if not event_queue.is_empty():
@@ -166,7 +199,11 @@ func _physics_process(delta_: float) -> void :
 		var direction = Input.get_axis("rotate_left", "rotate_right")
 		if direction:
 			rotate_(delta_, MAX_ROTATIONAL_SPEED, direction)
-	
+			
+func update_position():
+	internal_position = position
+	#internal_position.x += sin(deg_to_rad(internal_rotation)) * delta_*move_speed
+	#internal_position.y -= cos(deg_to_rad(internal_rotation)) * delta_*move_speed
 	
 ## This function is an abstraction for sending data to the arduino
 func send_distance_to_arduino_(desired_distance: float) -> void:
@@ -226,13 +263,20 @@ func rotate_(delta_: float, speed:float, direction: float) -> void:
 # 		so I decided to give it an _ suffix.
 func pick_up_material_(astral_material: Area2D) -> void:
 	if astral_material.is_nebulite() and ncsc_attached:
+		if astral_material.global_position in outside_nebulite:
+			outside_nebulite.erase(astral_material.global_position)
+		if astral_material.global_position in cave_nebulite:
+			cave_nebulite.erase(astral_material.global_position)
 		nebulite_count += 1
-		print("nebulite")
 	elif (not astral_material.is_nebulite() and gcsc_attached):
 		geodinium_count += 1
-		print("geodinium")
+		if astral_material.global_position in outside_geodinium:
+			outside_geodinium.erase(astral_material.global_position)
+		if astral_material.global_position in cave_geodinium:
+			cave_geodinium.erase(astral_material.global_position)
 	else:
 		return
+
 	astral_material.queue_free()
 
 
@@ -242,11 +286,9 @@ func pick_up_CSC(csc: Area2D) -> void:
 	if csc.is_nebulite():
 		ncsc_attached =  true
 		csc.queue_free()
-		print("nebulite csc")
 	elif not csc.is_nebulite():
 		gcsc_attached = true
 		csc.queue_free()
-		print("geodinium csc")
 		
 
 ## This updates the visual material count on the CSCs. Pure abstraction
@@ -258,7 +300,8 @@ func _update_count_label_(label: RichTextLabel, count: int) -> void:
 
 	#### ASTAR STARTS HERE #####
 #region AStar
-var test_grid : Array[Array]= [
+var test_grid : Array[Array]= \
+	[
 	[1, 0, 1, 1, 1, 1, 0, 1, 1, 1],
 	[1, 1, 1, 0, 1, 1, 1, 0, 1, 1],
 	[1, 1, 1, 0, 1, 1, 0, 1, 0, 1],
@@ -344,7 +387,8 @@ func a_star(start: Vector2, goal: Vector2, grid: Array) -> Array:
 # Note: this is liable to change. I'm thinking about using distance to nearest
 # astral material as the heuristic.
 func heuristic(pos_a: Vector2, pos_b: Vector2) -> float:
-	return pos_a.distance_to(pos_b)
+	var distance = pos_a.distance_to(pos_b)
+	return distance
 
 ## Helper function to check if a position is valid
 func is_valid_position(pos: Vector2, grid: Array) -> bool:
@@ -392,57 +436,153 @@ func AStar_to_Godot_Position(AStar_Position: Vector2) -> Vector2:
 func Godot_to_AStar_Position(Godot_Position: Vector2) -> Vector2:
 	return ceil(Godot_Position / (90))
 
+## Use this to get angle to target
+func get_rotation_to_target(start_pos: Vector2, end_pos: Vector2) -> float:
+	var direction = end_pos - start_pos 
+	var angle_radians = atan2(direction.y, direction.x) 
+	return rad_to_deg(angle_radians) + 90
 
 ## Just adds a transform to the queue
 func add_event(desired_transform: StateMachine.Transform) -> void:
 	event_queue.append(desired_transform)
 
 
+#region Event Parser
 func parse_event() -> void:
-	assert(not event_queue.is_empty()) # Note: Debugging purposes
+	assert(not event_queue.is_empty())  # Debugging purposes
+
 	var event = event_queue.pop_front()
 	var desired_rotation: float = 0.0
 	var desired_distance: float = 0.0
+
 	if event.is_absolute():
-		if event.rotation:
-			# Note: We're basically checking if it's easier to go left or right
-			if abs(event.rotation-internal_rotation) <= abs((event.rotation-360)-internal_rotation):
-				desired_rotation = event.rotation - internal_rotation
-			else:
-				desired_rotation = (event.rotation-360) - internal_rotation
-				
-		# If we want to use astar, we construct the path, throw the first path point
-		# to the microcontroller, and save the rest in the event queue
-		if event.position and event.AStar:
-			var new_queue: Array
-			var path: Array[Vector2] = a_star(Godot_to_AStar_Position(internal_position), \
-							  Godot_to_AStar_Position(event.position),\
-							  grid_array)
-			desired_distance = internal_position.distance_to(path[0])
-			desired_rotation = rad_to_deg(internal_position.angle_to(path[0]))
-			for i in range(1,len(path)):
-				var godot_pos := AStar_to_Godot_Position(path[i])
-				var new_rot:float = rad_to_deg(path[i-1].angle_to(path[i]))
-				var new_transform := StateMachine.Transform.new\
-									(Vector3(godot_pos.x,godot_pos.y,new_rot), true, true)
-				new_queue.append(new_transform)
-			new_queue.append_array(event_queue)
-			event_queue = new_queue
-		# If we don't want to use astar, we just get the distance :)
-		elif event.position and (not event.AStar):
-			desired_distance = internal_position.distance_to(event.position)
-			desired_rotation = rad_to_deg(event.position.angle_to(internal_position))
-	# These are for the cases where the transform is relative to the current position
+		parse_absolute_movement(event, desired_rotation, desired_distance)
 	else:
-		if event.rotation:
-			desired_rotation = event.rotation
-		if event.position and (event.position > Vector2(0,0)):
-			desired_distance = event.position.distance_to(Vector2(0,0))
-		# The below lets us move backwards
-		elif event.position and (event.position < Vector2(0,0)):
-			desired_distance = -event.position.distance_to(Vector2(0,0))
-	if desired_rotation:
+		parse_relative_movement(event, desired_rotation, desired_distance)
+	current_event = event
+	
+#   ABSOLUTE MOVEMENT HANDLING
+
+func parse_absolute_movement(event, desired_rotation: float, desired_distance: float) -> void:
+	if event.rotation:
+		desired_rotation = calculate_absolute_rotation(event.rotation)
+
+	if event.position:
+		if event.AStar:
+			process_astar_path(event)
+		else:
+			desired_distance = internal_position.distance_to(event.position)
+			var target_rotation = get_rotation_to_target(internal_position, event.position)
+			desired_rotation = calculate_absolute_rotation(target_rotation)
+	
+	#var arrow = preload("res://pathfindingnode.tscn").instantiate()
+	#arrow.start_position = internal_position
+	#arrow.length = desired_distance
+	#arrow.angle_degrees = get_rotation_to_target(internal_position, event.position)
+	#get_tree().current_scene.add_child(arrow)
+	execute_movement(desired_rotation, desired_distance)
+
+func calculate_absolute_rotation(target_rotation: float) -> float:
+	while(target_rotation < 0):
+		target_rotation += 360
+	while(target_rotation > 360):
+		target_rotation -= 360
+	var direct_rotation = target_rotation - internal_rotation
+	var alt_rotation = (target_rotation - 360) - internal_rotation
+	return direct_rotation if abs(direct_rotation) <= abs(alt_rotation) else alt_rotation
+
+#todo: make this work
+func process_astar_path(target_event: StateMachine.Transform) -> void:
+	var new_queue: Array
+	var path: Array = a_star(
+		Godot_to_AStar_Position(internal_position),
+		Godot_to_AStar_Position(target_event.position),
+		outside_map
+	)
+
+	var first_step = path[0]
+	var _desired_distance = internal_position.distance_to(first_step)
+	var _desired_rotation = rad_to_deg(internal_position.angle_to(first_step))
+
+	for i in range(1, len(path)):
+		var godot_pos := AStar_to_Godot_Position(path[i])
+		var new_rot: float = rad_to_deg(path[i - 1].angle_to(path[i]))
+		var new_transform := StateMachine.Transform.new(Vector3(godot_pos.x, godot_pos.y, new_rot), true)
+		new_queue.append(new_transform)
+		if i == len(path)-1:
+			# this doesnt work, and i strongly suspect it's because target_event is cleaned
+			new_transform.position_reached.connect(target_event.astar_finished.emit)
+
+	new_queue.append_array(event_queue)
+	event_queue = new_queue
+
+#   RELATIVE MOVEMENT HANDLING
+
+func parse_relative_movement(event, desired_rotation: float, desired_distance: float) -> void:
+	if event.rotation:
+		desired_rotation = event.rotation
+
+	if event.position:
+		desired_distance = event.position.length()  # Cleaner than comparing to `Vector2.ZERO`
+		if event.position.x < 0 or event.position.y < 0:
+			desired_distance *= -1  # Allows moving backwards
+	
+	execute_movement(desired_rotation, desired_distance)
+
+
+func execute_movement(desired_rotation: float, desired_distance: float) -> void:
+	if desired_rotation != 0.0:
 		send_rotation_to_arduino_(desired_rotation)
-	if desired_distance:
+
+	if desired_distance != 0.0:
 		send_distance_to_arduino_(desired_distance)
+#endregion
+
+# Placeholder function. I'm just a bit worried about the rover getting too close to
+# the wall
+func check_too_close_to_wall(pos: Vector2) -> void:
+	if pos.y <= 430:
+		var event := StateMachine.Transform.new(Vector3(pos.x,pos.y+400,0),true)
+		event_queue.append(event)
+	elif pos.y > 1160:
+		var event := StateMachine.Transform.new(Vector3(pos.x,pos.y-400,0),true)
+		event_queue.append(event)
+	if pos.x <= 370:
+		var event := StateMachine.Transform.new(Vector3(pos.x+450,pos.y,0),true)
+		event_queue.append(event)
+	elif pos.x >= 1390:
+		var event := StateMachine.Transform.new(Vector3(pos.x-450,pos.y,0),true)
+		event_queue.append(event)
+	return
+
+## This is in place of AStar. We'll get the closest position, then the closest 
+## position to that. Adds a bunch of points to the event queue
+func find_nearest_path(start_pos: Vector2 = internal_position, positions: Array = outside_geodinium+outside_nebulite) -> void:
+	var current_pos = start_pos
+	var remaining_positions = positions.duplicate()
+
+	# this might not work,can't change array while iterating in godot
+	while not remaining_positions.is_empty():
+		var closest_pos = remaining_positions[0]
+		var closest_distance = current_pos.distance_squared_to(closest_pos)
+
+		for pos: Vector2 in remaining_positions:
+			var dist = current_pos.distance_squared_to(pos)
+			if (dist < closest_distance):
+				closest_pos = pos
+				closest_distance = dist
+			
+		# Checks if rover will end up too close to the wall, and brings the rover
+		# closer to the center if it will.
+		check_too_close_to_wall(closest_pos)
+			
+		var new_event := StateMachine.Transform.new(Vector3(closest_pos.x,closest_pos.y,0), true)
+		event_queue.append(new_event)
+
+		remaining_positions.erase(closest_pos)  # Remove visited position
+		current_pos = closest_pos
+	
+	var final_event := StateMachine.Transform.new(pad_locations[correct_pad], true)
+	event_queue.append(final_event)
+	event_queue.append(StateMachine.Transform.new(Vector3(0,0,180), true))
 	
